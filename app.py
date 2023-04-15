@@ -214,109 +214,125 @@ def edit():
     operation = None
     form_html = ''
     options = nested_list_to_html_select_2(col_names(mysql, table_name))
+    authority = session.get('authority')
+    msg = ''
 
-    if request.method == 'POST' and 'search_form' in request.form:
-        operation = 'search'
-        table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
-        # form_html = get_insert_form(select_with_headers(mysql, table_name)[0])
-        return render_template('edit.html', table=table, table_name=table_name, operation=operation, options=options)
+    if request.method == 'POST' and 'delete_button' in request.form and authority != 'admin':
+        msg = 'Action not permitted!'
+    elif (request.method == 'POST' and 'insert_form' in request.form) or ('insert_execute' in request.form or 'update_execute' in request.form or 'update_button' in request.form) and (authority != 'admin' or authority != 'doctor'):
+        msg = 'Action not permitted!'
+    elif request.method == 'POST' and 'search_execute' in request.form and (authority != 'admin' or authority != 'doctor' or authority != 'patient'):
+        msg = 'Action not permitted!'
 
-    elif request.method == 'POST' and 'search_execute' in request.form:
+    if authority == 'admin':
+        if request.method == 'POST' and 'delete_button' in request.form:
+            values = request.form['delete_button'].split(',')
+            values = [val if val.isnumeric() else "\'" + val + "\'" for val in values]
+            columns = select_with_headers(mysql, table_name)[0]
+            where = []
+            for col, val in zip(columns, values):
+                where.append(col + " = " + val)
+            where = " AND ".join(where)
+            tables = delete_from_table(mysql, table_name, where)
+            try:
+                tables = [nested_list_to_html_table(t) for t in tables]
+                return render_template('delete_results.html', tables=tables, table_name=table_name)
+            except Exception as e:
+                return render_template('invalid.html', e=str(e))
 
-        # table = request.form['table']
-        search_col = request.form['column']
-        search_word = request.form['search_word']
+    if authority == 'admin' or authority == 'doctor':
 
-        # search table
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute(
-            f"DROP VIEW IF EXISTS Search_Result; CREATE VIEW Search_Result AS SELECT * FROM {table_name} WHERE {search_col} LIKE '%{search_word}%'")
-        result_table = cursor.fetchall()
-        cursor.nextset()
-        mysql.connection.commit()
-        try:
-            table_name = 'Search_Result'
+        if request.method == 'POST' and 'insert_form' in request.form:
+            operation = 'insert'
             table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
-            return render_template('search_result.html', table=table, table_name=table_name)
-        except Exception as e:
-            return render_template('invalid.html', e=str(e))
-
-    elif request.method == 'POST' and 'insert_form' in request.form:
-        operation = 'insert'
-        table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
-        form_html = get_insert_form(select_with_headers(mysql, table_name)[0])
-        return render_template('edit.html', table=table, table_name=table_name, operation=operation,
-                               form_html=form_html)
-    elif request.method == 'POST' and 'insert_execute' in request.form:
-        columns = select_with_headers(mysql, table_name)[0]
-        values = []
-        for col in columns:
-            val = request.form[col]
-            if val.isnumeric():
-                values.append(val)
-            else:
-                values.append("\'" + val + "\'")
-        try:
-            tables = insert_to_table(mysql, table_name, columns, values)
-        except Exception as e:
-            return render_template('invalid.html', e=str(e))
-        tables = [nested_list_to_html_table(t) for t in tables]
-        return render_template('insert_results.html', tables=tables, table_name=table_name)
-    elif request.method == 'POST' and 'delete_button' in request.form:
-        values = request.form['delete_button'].split(',')
-        values = [val if val.isnumeric() else "\'" + val + "\'" for val in values]
-        columns = select_with_headers(mysql, table_name)[0]
-        where = []
-        for col, val in zip(columns, values):
-            where.append(col + " = " + val)
-        where = " AND ".join(where)
-        tables = delete_from_table(mysql, table_name, where)
-        try:
+            form_html = get_insert_form(select_with_headers(mysql, table_name)[0])
+            return render_template('edit.html', table=table, table_name=table_name, operation=operation,
+                                   form_html=form_html)
+        elif request.method == 'POST' and 'insert_execute' in request.form:
+            columns = select_with_headers(mysql, table_name)[0]
+            values = []
+            for col in columns:
+                val = request.form[col]
+                if val.isnumeric():
+                    values.append(val)
+                else:
+                    values.append("\'" + val + "\'")
+            try:
+                tables = insert_to_table(mysql, table_name, columns, values)
+            except Exception as e:
+                return render_template('invalid.html', e=str(e))
             tables = [nested_list_to_html_table(t) for t in tables]
-            return render_template('delete_results.html', tables=tables, table_name=table_name)
-        except Exception as e:
-            return render_template('invalid.html', e=str(e))
+            return render_template('insert_results.html', tables=tables, table_name=table_name)
 
-    elif request.method == 'POST' and 'update_button' in request.form:
-        operation = 'update'
-        table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
-        values = request.form['update_button'].split(',')
-        form_html = get_update_form(select_with_headers(mysql, table_name)[0], values)
-        values = [val if val.isnumeric() else "\'" + val + "\'" for val in values]
-        columns = select_with_headers(mysql, table_name)[0]
-        where = []
-        for col, val in zip(columns, values):
-            where.append(col + " = " + val)
-        where = " AND ".join(where)
-        session['update_where'] = where
-        return render_template('edit.html', table=table, table_name=table_name, operation=operation,
-                               form_html=form_html)
-    elif request.method == 'POST' and 'update_execute' in request.form:
-        columns = select_with_headers(mysql, table_name)[0]
-        values = []
-        for col in columns:
-            val = request.form[col]
-            if val.isnumeric():
-                values.append(val)
-            else:
-                values.append("\'" + val + "\'")
+        elif request.method == 'POST' and 'update_button' in request.form:
+            operation = 'update'
+            table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
+            values = request.form['update_button'].split(',')
+            form_html = get_update_form(select_with_headers(mysql, table_name)[0], values)
+            values = [val if val.isnumeric() else "\'" + val + "\'" for val in values]
+            columns = select_with_headers(mysql, table_name)[0]
+            where = []
+            for col, val in zip(columns, values):
+                where.append(col + " = " + val)
+            where = " AND ".join(where)
+            session['update_where'] = where
+            return render_template('edit.html', table=table, table_name=table_name, operation=operation,
+                                   form_html=form_html)
+        elif request.method == 'POST' and 'update_execute' in request.form:
+            columns = select_with_headers(mysql, table_name)[0]
+            values = []
+            for col in columns:
+                val = request.form[col]
+                if val.isnumeric():
+                    values.append(val)
+                else:
+                    values.append("\'" + val + "\'")
 
-        set_statement = []
-        for col, val in zip(columns, values):
-            set_statement.append(col + " = " + val)
-        set_statement = ", ".join(set_statement)
+            set_statement = []
+            for col, val in zip(columns, values):
+                set_statement.append(col + " = " + val)
+            set_statement = ", ".join(set_statement)
 
-        try:
-            tables = update_table(mysql, table_name, set_statement, session['update_where'])
-        except Exception as e:
-            return render_template('invalid.html', e=str(e))
-        tables = [nested_list_to_html_table(t) for t in tables]
-        if session.get('update_where'):
-            session.pop('update_where', None)
-        return render_template('update_results.html', tables=tables, table_name=table_name)
+            try:
+                tables = update_table(mysql, table_name, set_statement, session['update_where'])
+            except Exception as e:
+                return render_template('invalid.html', e=str(e))
+            tables = [nested_list_to_html_table(t) for t in tables]
+            if session.get('update_where'):
+                session.pop('update_where', None)
+            return render_template('update_results.html', tables=tables, table_name=table_name)
+
+    if authority == 'admin' or authority == 'doctor' or authority == 'patient':
+
+        if request.method == 'POST' and 'search_form' in request.form:
+            operation = 'search'
+            table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
+            # form_html = get_insert_form(select_with_headers(mysql, table_name)[0])
+            return render_template('edit.html', table=table, table_name=table_name, operation=operation,
+                                   options=options)
+        elif request.method == 'POST' and 'search_execute' in request.form:
+
+            # table = request.form['table']
+            search_col = request.form['column']
+            search_word = request.form['search_word']
+
+            # search table
+            cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+            cursor.execute(
+                f"DROP VIEW IF EXISTS Search_Result; CREATE VIEW Search_Result AS SELECT * FROM {table_name} WHERE {search_col} LIKE '%{search_word}%'")
+            result_table = cursor.fetchall()
+            cursor.nextset()
+            mysql.connection.commit()
+            try:
+                table_name = 'Search_Result'
+                table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
+                return render_template('search_result.html', table=table, table_name=table_name)
+            except Exception as e:
+                return render_template('invalid.html', e=str(e))
 
     table = nested_list_to_html_table(select_with_headers(mysql, table_name), buttons=True)
-    return render_template('edit.html', table=table, table_name=table_name, operation=operation, form_html=form_html)
+    return render_template('edit.html', table=table, table_name=table_name, operation=operation, form_html=form_html,
+                           msg=msg)
 
 
 # app run
