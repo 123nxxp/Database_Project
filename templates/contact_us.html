@@ -142,12 +142,34 @@
                     <textarea class="form-control" id="message" rows="5"></textarea>
                 </div>
                 <br>
-                <a type="button" class="btn btn-primary btn-lg" href="mailto:dange.mahesh@iitgn.ac.in">Submit</a>
-                <!-- <button type="submit" class="btn btn-primary">Submit</button> -->
+                <button type="submit" class="btn btn-primary btn-lg" onclick="sendEmail(event)">Submit</button>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+    function sendEmail(event) {
+        event.preventDefault(); // prevent the form from submitting normally
+
+        // get the user's email address and message
+        const email = document.getElementById("email").value;
+        const message = document.getElementById("message").value;
+
+        // copy the message to the user's clipboard
+        navigator.clipboard.writeText(message)
+            .then(() => {
+                // open the user's default email client with a pre-filled email
+                window.location.href = `mailto:${email}?subject=Contact%20Form%20Submission&body=${message}`;
+            })
+            .catch(error => {
+                console.error(`Failed to copy message: ${error}`);
+            });
+    }
+</script>
+
+
+
 
 
 <!-- footer -->
