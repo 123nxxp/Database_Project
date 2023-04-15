@@ -28,7 +28,9 @@ mysql = MySQL(app)
 @app.route('/', methods=['GET', 'POST'])
 def login():
     msg = ''
+    # authority = 'patient'
     if request.method == 'POST' and 'useremail' in request.form and 'password' in request.form and 'authority' in request.form:
+        # if request.method == 'POST' and 'useremail' in request.form and 'password' in request.form:
         useremail = request.form['useremail']
         password = request.form['password']
         authority = request.form['authority']
@@ -37,6 +39,7 @@ def login():
         if (authority == "patient"):
             cursor.execute('SELECT * FROM users WHERE email = % s AND password = % s AND role=%s',
                            (useremail, password, "patient",))
+            # cursor.execute(f"SELECT * FROM users WHERE email = '{useremail}' AND password = '{password}' AND role = 'patient'")
             account = cursor.fetchone()
             if account:
                 session['bool'] = True
@@ -44,12 +47,12 @@ def login():
                 msg = 'Logged in successfully!'
                 flask.flash(msg)
                 return redirect(url_for('index'))
-                # return redirect(url_for("patientdashboard")) # redirect to customer dashboard
             else:
-                msg = 'Incorrect username / password !'
+                msg = 'Incorrect username / password/ role !'
         elif (authority == "doctor"):
             cursor.execute('SELECT * FROM users WHERE email = % s AND password = % s AND role=%s',
                            (useremail, password, "doctor",))
+            # cursor.execute(f"SELECT * FROM users WHERE email = '{useremail}' AND password = '{password}' AND role = 'doctor'")
             account = cursor.fetchone()
             if account:
                 session['bool'] = True
@@ -57,13 +60,13 @@ def login():
                 msg = 'Logged in successfully!'
                 flask.flash(msg)
                 return redirect(url_for('index'))
-                # return redirect(url_for("doctordashboard")) # redirect to doctor dashboard
             else:
-                msg = 'Incorrect username/password!'
+                msg = 'Incorrect username/password/ role!'
                 flask.flash(msg)
         elif (authority == "admin"):
             cursor.execute('SELECT * FROM users WHERE email = % s AND password = % s AND role=%s',
                            (useremail, password, "admin",))
+            # cursor.execute(f"SELECT * FROM users WHERE email = '{useremail}' AND password = '{password}' AND role = 'admin'")
             account = cursor.fetchone()
             if account:
                 session['bool'] = True
@@ -71,12 +74,11 @@ def login():
                 msg = 'Logged in successfully!'
                 flask.flash(msg)
                 return redirect(url_for('index'))
-                # return redirect(url_for("admindashboard")) # redirect to admin dashboard
             else:
-                msg = 'Incorrect username/password!'
+                msg = 'Incorrect username/password/ role!'
                 flask.flash(msg)
         else:
-            msg = 'Incorrect username/password!'
+            msg = 'Incorrect username/password/ role!'
             flask.flash(msg)
     return render_template('login.html', msg=msg)
 
@@ -201,7 +203,6 @@ def pick_table():
 
             session['table_name'] = request.form['new_name']
             return redirect(url_for('edit'))
-
 
     table = nested_list_to_html_table(show_tables(mysql))
     return render_template('pick_table.html', table=table, table_name=table_name, options=options)
