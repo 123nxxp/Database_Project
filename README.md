@@ -1,4 +1,4 @@
-# Database_Project
+# Database Project
 
 # Dispensary Management System
 
