@@ -8,3 +8,4 @@ request
 redirect
 url_for 
 session
+pip install MySQL-python
